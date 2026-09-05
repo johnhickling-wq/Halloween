@@ -1,0 +1,69 @@
+# Ashcombe Hollow
+
+*All Hallows' Eve, in a small village in Somerset that keeps early hours.*
+
+A spooky first-person mystery for the browser, built with [three.js](https://threejs.org). You arrive after dark in the village of Ashcombe on the strength of a letter from a great-aunt you never knew you had. Every window is lit, every doorstep has a pumpkin on it, and there is nobody about. Explore the village, read what the villagers left behind, and work out what the Vigil is before the church clock strikes eleven.
+
+![The High Street](docs/screenshots/high-street.jpg)
+
+## Play it
+
+The game is a static site with no build step.
+
+**Online:** enable GitHub Pages for this repository (Settings → Pages → *Deploy from a branch*, root folder) and open the published URL.
+
+**Locally:** serve the folder over HTTP (ES modules will not load from `file://`):
+
+```bash
+# any static server works, for example:
+npx serve .            # then open http://localhost:3000
+# or
+python3 -m http.server 8000   # then open http://localhost:8000
+```
+
+Desktop browser with a mouse and keyboard required (Chrome, Edge, Firefox or Safari). Headphones recommended.
+
+## Controls
+
+| Key | Action |
+| --- | --- |
+| `W A S D` / arrows | Walk |
+| `Shift` | Run |
+| Mouse | Look |
+| `E` | Examine, read, open doors |
+| `J` / `Tab` | Journal and map |
+| `Esc` | Pause (mouse sensitivity, head-bob) |
+
+The **Quality** selector on the title screen trades shadows, bloom and anti-aliasing for frame rate on weaker machines.
+
+## What's in the village
+
+- A procedurally generated English village: thatched and slate-roofed cottages, a brick coaching inn, a stone schoolhouse, the vicarage, a Norman church with a bell tower and a full churchyard, dry-stone walls, a village green with a well, a field of scarecrows, a marsh with a stone circle, and woods all round.
+- Five buildings you can walk into, each dressed with furniture, firelight and the things their occupants left behind.
+- Twelve clues that assemble into the story of the Vigil, a journal that keeps track of what you have worked out, and a hand-drawn map.
+- Two endings, decided by what you choose to do when the bell rings.
+- Something tall that stands at the end of lanes and is closer each time you look back.
+- A fully procedural soundscape: wind, owls, crows, footsteps that change with the ground, creaking doors, the church bell, whispers from the marsh and your own heartbeat. No audio files.
+- Everything visual is generated at load time as well: every texture is drawn on a canvas, every building, tree and gravestone is built from code. There are no model or image assets in the repository.
+
+## Technical notes
+
+- `index.html` loads `src/main.js` as an ES module. three.js r185 is vendored in `vendor/three` (MIT licence, see `vendor/three/LICENSE`) and resolved through an import map, so nothing needs installing.
+- Rendering: `WebGLRenderer` with ACES tone mapping, moon-lit directional shadows, a pool of point lights assigned each frame to the nearest lanterns and candles, `UnrealBloomPass`, a custom colour-grade / grain / vignette pass and FXAA.
+- World: a height-field terrain with a three-way splat shader (grass, mud, cobbles), a custom sky shader (stars, clouds, an oversized moon and a dawn), a shader-driven marsh, wind-swayed reeds, instanced procedural trees, ground mist, falling leaves, chimney smoke, wisps and bats.
+- Static geometry is merged by material into spatial chunks after the village is built, which keeps draw calls manageable.
+- `src/story.js` holds all of the clue text and the act structure; `src/world/village.js` is the village layout.
+
+### Developer flags
+
+Append these to the URL for testing:
+
+- `?debug` skips the title screen and starts immediately (add `&x=..&z=..&yaw=..` to spawn somewhere specific).
+- `?debug&act=3` starts with the bell already rung.
+- `?q=low|medium|high` forces a quality level; `&ts=4` (with `debug`) speeds up game time.
+
+`window.__game` exposes the running game for poking at from the console.
+
+## Credits
+
+Written for Halloween 2026. Built with three.js. Fonts by the IM Fell and Caveat projects via Google Fonts (the game falls back to system fonts offline).

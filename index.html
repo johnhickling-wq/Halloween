@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Ashcombe Hollow — All Hallows' Eve</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='18' r='12' fill='%23e8731a'/%3E%3Cpath d='M9 15l4 3-4 2zM23 15l-4 3 4 2zM9 24q7 5 14 0l-2-1-2 1-2-1-2 1-2-1-2 1z' fill='%23140a04'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=IM+Fell+English+SC&family=Caveat:wght@500;700&display=swap" rel="stylesheet">
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three/build/three.module.min.js",
+    "three/addons/": "./vendor/three/examples/jsm/"
+  }
+}
+</script>
+<style>
+  :root {
+    --paper: #d9c9a3;
+    --ink: #2a1d12;
+    --ember: #e8731a;
+    --bone: #cfc6b0;
+    --fog: #8e9aa8;
+    --serif: 'IM Fell English', 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+    --caps: 'IM Fell English SC', 'IM Fell English', Georgia, serif;
+    --hand: 'Caveat', 'Segoe Print', 'Bradley Hand', cursive;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #000; color: var(--bone); font-family: var(--serif); overflow: hidden; }
+  #app { position: fixed; inset: 0; }
+  #app canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  button { font-family: var(--caps); font-size: 1.25rem; letter-spacing: 0.12em; color: var(--bone);
+    background: rgba(20,14,10,0.6); border: 1px solid rgba(207,198,176,0.35); padding: 0.7rem 2.2rem; cursor: pointer;
+    transition: background 0.25s, border-color 0.25s, color 0.25s, text-shadow 0.25s; }
+  button:hover { background: rgba(232,115,26,0.18); border-color: var(--ember); color: #fff; text-shadow: 0 0 12px rgba(232,115,26,0.8); }
+  button:disabled { opacity: 0.4; cursor: default; }
+  input[type=text] { font-family: var(--hand); font-size: 1.8rem; color: #1e1409; background: rgba(217,201,163,0.92);
+    border: none; border-bottom: 2px solid #5a4630; padding: 0.2rem 0.8rem; width: 16rem; text-align: center; outline: none; }
+  input[type=range] { accent-color: var(--ember); width: 12rem; vertical-align: middle; }
+  label { font-size: 1rem; letter-spacing: 0.05em; }
+
+  /* ---------- HUD ---------- */
+  #hud { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity 0.6s; }
+  #hud.on { opacity: 1; }
+  #crosshair { position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%;
+    background: rgba(255,255,255,0.55); box-shadow: 0 0 4px rgba(0,0,0,0.8); transition: transform 0.15s, background 0.15s; }
+  #crosshair.hot { transform: scale(1.8); background: rgba(255,200,120,0.95); }
+  #prompt { position: absolute; left: 50%; top: 55%; transform: translateX(-50%); font-family: var(--caps); font-size: 1.15rem;
+    letter-spacing: 0.1em; color: #fff; text-shadow: 0 0 8px #000, 0 1px 2px #000; opacity: 0; transition: opacity 0.15s; white-space: nowrap; }
+  #prompt.on { opacity: 1; }
+  #prompt kbd { display: inline-block; font-family: var(--caps); border: 1px solid rgba(255,255,255,0.6); border-radius: 3px;
+    padding: 0 0.45em; margin-right: 0.5em; font-size: 0.95em; background: rgba(0,0,0,0.35); }
+  #objective { position: absolute; left: 2.2rem; top: 1.8rem; max-width: 34rem; font-size: 1.1rem; line-height: 1.45;
+    color: #e6dcc4; text-shadow: 0 0 10px #000, 0 1px 2px #000; opacity: 0; transition: opacity 0.8s; }
+  #objective.on { opacity: 1; }
+  #objective small { display: block; font-family: var(--caps); letter-spacing: 0.2em; font-size: 0.75rem; color: var(--ember); margin-bottom: 0.2rem; }
+  #clues { position: absolute; right: 2.2rem; top: 1.8rem; font-family: var(--caps); letter-spacing: 0.15em; font-size: 0.95rem;
+    color: #cfc6b0; text-shadow: 0 0 10px #000, 0 1px 2px #000; text-align: right; }
+  #clues b { color: var(--ember); font-weight: normal; }
+  #clues .keys { display: block; margin-top: 0.4rem; font-size: 0.75rem; opacity: 0.6; }
+  #subtitle { position: absolute; left: 50%; bottom: 9%; transform: translateX(-50%); max-width: 60rem; text-align: center;
+    font-size: 1.35rem; font-style: italic; color: #efe6d0; text-shadow: 0 0 10px #000, 0 1px 3px #000, 0 0 30px rgba(0,0,0,0.9);
+    opacity: 0; transition: opacity 0.5s; padding: 0 2rem; }
+  #subtitle.on { opacity: 1; }
+  #subtitle.sfx { color: #a9b6c4; font-size: 1.1rem; }
+  #toast { position: absolute; left: 50%; top: 14%; transform: translateX(-50%); font-family: var(--caps); letter-spacing: 0.2em;
+    font-size: 1.05rem; color: var(--ember); text-shadow: 0 0 14px rgba(232,115,26,0.6), 0 1px 2px #000; opacity: 0; transition: opacity 0.6s; white-space: nowrap; }
+  #toast.on { opacity: 1; }
+  #fade { position: absolute; inset: 0; background: #000; opacity: 1; pointer-events: none; transition: opacity 2.5s; }
+  #fade.slow { transition-duration: 6s; }
+  #fade.fast { transition-duration: 0.6s; }
+  #fade.clear { opacity: 0; }
+  #damage { position: absolute; inset: 0; pointer-events: none; opacity: 0;
+    background: radial-gradient(ellipse at center, rgba(0,0,0,0) 40%, rgba(20,0,0,0.85) 100%); transition: opacity 0.4s; }
+
+  /* ---------- Screens ---------- */
+  .screen { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column;
+    opacity: 0; pointer-events: none; transition: opacity 0.6s; }
+  .screen.on { opacity: 1; pointer-events: auto; }
+  #title { background: radial-gradient(ellipse at 50% 120%, #1a0d05 0%, #050305 60%, #000 100%); text-align: center; }
+  #title::before { content: ''; position: absolute; inset: -20%;
+    background: radial-gradient(circle at 30% 60%, rgba(120,130,150,0.10), transparent 40%), radial-gradient(circle at 70% 40%, rgba(120,130,150,0.08), transparent 40%);
+    animation: fogdrift 30s ease-in-out infinite alternate; pointer-events: none; }
+  @keyframes fogdrift { from { transform: translate(-4%, 2%) scale(1); } to { transform: translate(4%, -2%) scale(1.15); } }
+  #title .inner { position: relative; }
+  #title h1 { font-family: var(--caps); font-weight: normal; font-size: clamp(2.6rem, 8vw, 6.5rem); letter-spacing: 0.18em; margin: 0;
+    color: #e6dcc4; text-shadow: 0 0 30px rgba(232,115,26,0.35), 0 0 2px #000; animation: flicker 9s infinite; }
+  @keyframes flicker { 0%,100% { opacity: 1; } 92% { opacity: 1; } 93% { opacity: 0.6; } 94% { opacity: 1; } 96% { opacity: 0.75; } 97% { opacity: 1; } }
+  #title h2 { font-family: var(--serif); font-style: italic; font-weight: normal; font-size: clamp(1rem, 2.4vw, 1.5rem); letter-spacing: 0.1em;
+    color: var(--ember); margin: 0.4rem 0 2.4rem; }
+  #title .name { margin-bottom: 2rem; }
+  #title .name p { margin: 0 0 0.6rem; font-style: italic; color: #9a917d; }
+  #title .controls { margin-top: 2.6rem; font-size: 0.95rem; color: #857c69; letter-spacing: 0.06em; line-height: 1.8; }
+  #title .controls kbd { font-family: var(--caps); color: #cfc6b0; border: 1px solid rgba(207,198,176,0.3); border-radius: 3px; padding: 0 0.4em; }
+  #title .warn { margin-top: 1.6rem; font-size: 0.85rem; color: #5f574a; font-style: italic; }
+  #title .loading { color: #857c69; font-style: italic; letter-spacing: 0.1em; margin-top: 1rem; min-height: 1.4em; }
+  #title .quality { margin-top: 1.2rem; font-size: 0.9rem; color: #857c69; }
+  #title .quality select { font-family: var(--serif); background: #120c08; color: #cfc6b0; border: 1px solid rgba(207,198,176,0.3); padding: 0.2rem 0.5rem; }
+
+  #intro { background: #000; padding: 2rem; }
+  .letter { max-width: 40rem; max-height: 88vh; overflow: auto; font-family: var(--hand); font-size: clamp(1.25rem, 2.4vw, 1.75rem); line-height: 1.55; color: #d9c9a3;
+    white-space: pre-wrap; opacity: 0; transition: opacity 3s; }
+  .letter.on { opacity: 1; }
+  .letter .sig { text-align: right; margin-top: 1rem; }
+  #intro .skip { position: absolute; bottom: 2rem; right: 2.5rem; font-size: 0.85rem; color: #5f574a; letter-spacing: 0.15em; font-family: var(--caps); }
+
+  /* Paper note overlay */
+  #note { background: rgba(0,0,0,0.55); backdrop-filter: blur(2px); }
+  .paper { position: relative; width: min(46rem, 92vw); max-height: 86vh; overflow: auto; padding: 2.6rem 3.2rem; color: var(--ink);
+    background: #d9c9a3;
+    background-image: radial-gradient(ellipse at 20% 10%, rgba(255,255,255,0.25), transparent 50%), radial-gradient(ellipse at 90% 90%, rgba(90,60,20,0.25), transparent 50%),
+      repeating-linear-gradient(0deg, rgba(0,0,0,0.018) 0 2px, transparent 2px 4px);
+    box-shadow: 0 30px 80px rgba(0,0,0,0.9), inset 0 0 60px rgba(80,50,10,0.35); border-radius: 2px;
+    transform: rotate(-0.6deg) translateY(20px); transition: transform 0.4s; }
+  #note.on .paper { transform: rotate(-0.6deg) translateY(0); }
+  .paper h3 { font-family: var(--caps); font-weight: normal; letter-spacing: 0.15em; font-size: 1.25rem; margin: 0 0 1.2rem; color: #4a331d; border-bottom: 1px solid rgba(74,51,29,0.4); padding-bottom: 0.5rem; }
+  .paper .body { font-size: 1.2rem; line-height: 1.55; white-space: pre-wrap; }
+  .paper .body.hand { font-family: var(--hand); font-size: 1.6rem; line-height: 1.4; color: #1f1a2e; }
+  .paper .body.type { font-family: 'Courier New', monospace; font-size: 1rem; color: #26201a; }
+  .paper .body.carved { font-family: var(--caps); font-size: 1.35rem; letter-spacing: 0.12em; text-align: center; color: #3b3b3b; }
+  .paper .body.chalk { font-family: var(--hand); font-size: 1.5rem; color: #eee; background: #1d2622; padding: 1.5rem; border: 10px solid #5b3d22; }
+  .paper .body.crayon { font-family: var(--hand); font-size: 1.6rem; color: #b3261e; }
+  .paper .body em { color: #7a1010; font-style: italic; }
+  .paper .body s { opacity: 0.55; }
+  .paper .body .stamp { display: inline-block; font-family: var(--caps); border: 2px solid #7a1010; color: #7a1010; padding: 0.1em 0.5em; transform: rotate(-6deg); letter-spacing: 0.1em; }
+  .paper .body .blank { display: inline-block; min-width: 8em; border-bottom: 1px solid #333; }
+  .paper .close { margin-top: 1.6rem; text-align: center; font-family: var(--caps); letter-spacing: 0.15em; font-size: 0.85rem; color: #5a4630; }
+  .paper .thought { margin-top: 1.4rem; padding-top: 1rem; border-top: 1px dashed rgba(74,51,29,0.4); font-style: italic; color: #4a331d; font-size: 1.05rem; line-height: 1.5; }
+
+  /* Journal */
+  #journal { background: rgba(0,0,0,0.62); backdrop-filter: blur(3px); }
+  .book { width: min(74rem, 94vw); height: min(46rem, 88vh); display: grid; grid-template-columns: 1fr 1fr; gap: 0;
+    background: #cbb98f; color: var(--ink); box-shadow: 0 30px 90px rgba(0,0,0,0.95); position: relative; border-radius: 4px; overflow: hidden; }
+  .book::before { content: ''; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; background: linear-gradient(90deg, rgba(0,0,0,0.35), rgba(0,0,0,0.05)); box-shadow: -8px 0 20px rgba(0,0,0,0.25), 8px 0 20px rgba(0,0,0,0.25); }
+  .page { padding: 2.2rem 2.6rem; overflow: auto; background-image: radial-gradient(ellipse at 30% 20%, rgba(255,255,255,0.2), transparent 60%), repeating-linear-gradient(0deg, rgba(0,0,0,0.02) 0 2px, transparent 2px 4px); }
+  .page h3 { font-family: var(--caps); font-weight: normal; letter-spacing: 0.2em; margin: 0 0 1rem; color: #4a331d; border-bottom: 1px solid rgba(74,51,29,0.35); padding-bottom: 0.4rem; font-size: 1.15rem; }
+  .page .obj { font-family: var(--hand); font-size: 1.5rem; line-height: 1.35; color: #2b2340; margin-bottom: 1.4rem; }
+  .page ul { list-style: none; padding: 0; margin: 0; }
+  .page li { font-family: var(--hand); font-size: 1.35rem; line-height: 1.35; color: #2b2340; margin: 0 0 1rem; padding-left: 1.6rem; position: relative; }
+  .page li::before { content: '✦'; position: absolute; left: 0; top: 0.1em; color: #7a4a1a; font-size: 0.9em; }
+  .page li b { display: block; font-family: var(--caps); font-size: 0.95rem; letter-spacing: 0.15em; color: #4a331d; font-weight: normal; margin-bottom: 0.1rem; }
+  .page li.new b::after { content: 'new'; margin-left: 0.8em; color: #7a1010; font-size: 0.8em; letter-spacing: 0.2em; }
+  .page .empty { font-style: italic; color: #6a5a45; }
+  .page canvas { width: 100%; height: auto; display: block; border: 1px solid rgba(74,51,29,0.3); background: #c9b78c; }
+  .page .caption { font-family: var(--caps); font-size: 0.8rem; letter-spacing: 0.2em; color: #6a5a45; margin: 0.6rem 0 0; text-align: center; }
+  .book .close { position: absolute; bottom: 0.8rem; left: 50%; transform: translateX(-50%); font-family: var(--caps); letter-spacing: 0.15em; font-size: 0.85rem; color: #5a4630; }
+
+  /* Pause */
+  #pause { background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); text-align: center; }
+  #pause h2 { font-family: var(--caps); font-weight: normal; letter-spacing: 0.3em; font-size: 2.2rem; margin: 0 0 1.5rem; color: #e6dcc4; }
+  #pause .row { margin: 0.9rem 0; color: #a99f8a; }
+  #pause .controls { margin-top: 2rem; font-size: 0.9rem; color: #857c69; line-height: 1.8; }
+  #pause .controls kbd { font-family: var(--caps); color: #cfc6b0; border: 1px solid rgba(207,198,176,0.3); border-radius: 3px; padding: 0 0.4em; }
+
+  /* Ending */
+  #ending { background: #000; padding: 2rem; text-align: center; overflow: auto; }
+  #ending .text { max-width: 44rem; max-height: 72vh; overflow: auto; font-size: clamp(1.15rem, 2.2vw, 1.5rem); line-height: 1.7; color: #d9c9a3; white-space: pre-wrap; opacity: 0; transition: opacity 3s; }
+  #ending .text.on { opacity: 1; }
+  #ending h2 { font-family: var(--caps); font-weight: normal; letter-spacing: 0.3em; font-size: clamp(1.6rem, 4vw, 3rem); margin: 0 0 1.5rem; color: #e6dcc4; }
+  #ending .again { margin-top: 2.5rem; opacity: 0; transition: opacity 2s; }
+  #ending .again.on { opacity: 1; }
+  #ending .stats { margin-top: 1rem; font-family: var(--caps); letter-spacing: 0.15em; font-size: 0.9rem; color: #857c69; }
+
+  #err { position: absolute; left: 0; right: 0; bottom: 0; background: #400; color: #fdd; font: 12px monospace; padding: 6px 10px; display: none; white-space: pre-wrap; z-index: 99; }
+  @media (max-width: 700px) {
+    .book { grid-template-columns: 1fr; height: 90vh; overflow: auto; }
+    .book::before { display: none; }
+    #objective { max-width: 60vw; font-size: 0.95rem; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="hud">
+    <div id="crosshair"></div>
+    <div id="prompt"></div>
+    <div id="objective"><small>Objective</small><span></span></div>
+    <div id="clues"><span>Clues <b>0</b> / 12</span><span class="keys">J — Journal</span></div>
+    <div id="toast"></div>
+    <div id="subtitle"></div>
+    <div id="damage"></div>
+  </div>
+  <div id="fade"></div>
+
+  <div id="title" class="screen on">
+    <div class="inner">
+      <h1>ASHCOMBE HOLLOW</h1>
+      <h2>All Hallows' Eve — a village in Somerset — the year of our Lord 2026</h2>
+      <div class="name">
+        <p>Whose name is on the letter?</p>
+        <input id="playerName" type="text" maxlength="24" value="Alice Marlow" spellcheck="false" autocomplete="off">
+      </div>
+      <button id="begin" disabled>Begin</button>
+      <div class="loading" id="loading">the lanterns are being lit…</div>
+      <div class="quality">
+        <label>Quality <select id="quality"><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option></select></label>
+      </div>
+      <div class="controls">
+        <kbd>W A S D</kbd> walk &nbsp; <kbd>Shift</kbd> run &nbsp; <kbd>Mouse</kbd> look &nbsp; <kbd>E</kbd> examine / open &nbsp; <kbd>J</kbd> journal &nbsp; <kbd>Esc</kbd> pause
+      </div>
+      <div class="warn">Best with headphones, the lights down, and the door locked.</div>
+    </div>
+  </div>
+
+  <div id="intro" class="screen">
+    <div class="letter" id="introLetter"></div>
+    <div class="skip">Press any key to continue</div>
+  </div>
+
+  <div id="note" class="screen">
+    <div class="paper">
+      <h3 id="noteTitle"></h3>
+      <div class="body" id="noteBody"></div>
+      <div class="thought" id="noteThought"></div>
+      <div class="close">E · Esc — put it down</div>
+    </div>
+  </div>
+
+  <div id="journal" class="screen">
+    <div class="book">
+      <div class="page">
+        <h3>Journal</h3>
+        <div class="obj" id="journalObjective"></div>
+        <ul id="journalList"></ul>
+      </div>
+      <div class="page">
+        <h3>Ashcombe</h3>
+        <canvas id="mapCanvas" width="640" height="640"></canvas>
+        <p class="caption">from the notice board by the green</p>
+      </div>
+      <div class="close">J · Esc — close</div>
+    </div>
+  </div>
+
+  <div id="pause" class="screen">
+    <h2>PAUSED</h2>
+    <div class="row"><button id="resume">Resume</button></div>
+    <div class="row"><label>Mouse sensitivity <input id="sens" type="range" min="0.2" max="2" step="0.05" value="1"></label></div>
+    <div class="row"><label>Head bob <input id="bob" type="range" min="0" max="1" step="0.1" value="1"></label></div>
+    <div class="controls">
+      <kbd>W A S D</kbd> walk &nbsp; <kbd>Shift</kbd> run &nbsp; <kbd>E</kbd> examine / open &nbsp; <kbd>J</kbd> journal<br>
+      <span id="pauseHint"></span>
+    </div>
+  </div>
+
+  <div id="ending" class="screen">
+    <div class="text" id="endingText"></div>
+    <div class="again" id="endingAgain"><button id="again">Begin again</button><div class="stats" id="endingStats"></div></div>
+  </div>
+  <div id="err"></div>
+</div>
+<script>
+  window.addEventListener('error', e => { const d = document.getElementById('err'); d.style.display = 'block'; d.textContent += (e.message || e) + '\n' + (e.error && e.error.stack ? e.error.stack : '') + '\n'; });
+  window.addEventListener('unhandledrejection', e => { const d = document.getElementById('err'); d.style.display = 'block'; d.textContent += 'Unhandled: ' + (e.reason && e.reason.stack || e.reason) + '\n'; });
+</script>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
