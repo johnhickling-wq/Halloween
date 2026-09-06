@@ -7,7 +7,8 @@ import { Input } from './input.js';
 import { PostFX } from './postfx.js';
 import { createTextures, buildVillage } from './world/village.js';
 import { makeMaterials } from './world/buildings.js';
-import { plantTrees, plantReeds, makeWater } from './world/nature.js';
+import { plantTrees, plantReeds, makeWater, dressWoods } from './world/nature.js';
+import { AssetLib, DEFAULT_SET } from './world/assets.js';
 import { GroundMist, Leaves, Wisps, Smoke, Bats } from './world/fx.js';
 import { mergeStatic } from './world/merge.js';
 import { UI, escapeHtml } from './ui.js';
@@ -90,12 +91,21 @@ class Game {
     terrain.userData.keep = true;
     this.world.group.add(terrain);
     this.lightPool = new LightPool(scene, this.quality === 'high' ? 10 : this.quality === 'medium' ? 6 : 3);
+    if (!params.has('noassets')) {
+      await this.yieldFrame('unpacking the crates…');
+      this.assets = new AssetLib();
+      this.world.assets = this.assets;
+      let lastPct = -1;
+      await this.assets.loadAll(DEFAULT_SET, (f) => { const pct = Math.round(f * 100); if (pct !== lastPct && pct % 25 === 0) { lastPct = pct; this.yieldFrame(`unpacking the crates… ${pct}%`); } });
+      console.log(`[load] assets ready (${this.assets.templates.size} models) @ ${(performance.now() / 1000).toFixed(2)}s`);
+    }
     await this.yieldFrame('raising the church…');
     this.village = buildVillage(this.world, this.materials);
     await this.yieldFrame('planting the woods…');
+    plantTrees(this.world, this.materials);
+    dressWoods(this.world);
     this.mergeStats = mergeStatic(this.world);
     console.log('[merge]', JSON.stringify(this.mergeStats));
-    plantTrees(this.world, this.materials);
     plantReeds(this.world);
     makeWater(this.world, moonDir, this.fogColor);
     this.fx = {
@@ -208,7 +218,7 @@ class Game {
     this.flame = flame;
     const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.tex.blob, color: 0xff9a40, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false }));
     glow.scale.setScalar(0.35); glow.position.y = -0.02; g.add(glow);
-    const light = new THREE.PointLight(0xffa552, 9, 18, 2);
+    const light = new THREE.PointLight(0xffa552, 7.5, 18, 2);
     light.position.set(-0.06, 0.0, -0.12);
     g.add(light);
     this.lanternLight = light;
@@ -271,7 +281,7 @@ class Game {
 
     // lantern flicker and swing
     const fl = 0.85 + 0.15 * Math.sin(t * 17.3) * Math.sin(t * 5.1) + 0.06 * Math.sin(t * 43.1) - this.lampFlicker * Math.random() * 0.7;
-    this.lanternLight.intensity = 9 * Math.max(0.1, fl) * (1 - this.dawn * 0);
+    this.lanternLight.intensity = 7.5 * Math.max(0.1, fl);
     this.flame.scale.set(0.9 + 0.2 * fl, 1.8 * (0.9 + 0.2 * fl), 0.9 + 0.2 * fl);
     const sw = p.lanternSwing;
     this.lantern.rotation.set(sw.y * 0.5 + Math.sin(t * 2.1) * 0.03, 0, -sw.x * 0.5 + Math.sin(t * 1.7) * 0.03);

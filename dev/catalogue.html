@@ -1,0 +1,42 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Ashcombe asset catalogue</title>
+<style>body{margin:0;background:#101318;color:#ccc;font:12px monospace}#labels div{position:absolute;color:#fc9;text-shadow:0 0 3px #000;pointer-events:none}</style>
+<script type="importmap">{"imports":{"three":"../vendor/three/build/three.module.min.js","three/addons/":"../vendor/three/examples/jsm/"}}</script>
+</head><body><div id="labels"></div>
+<script type="module">
+import * as THREE from 'three';
+import { AssetLib, MANIFEST } from '../src/world/assets.js';
+const params = new URLSearchParams(location.search);
+const filter = params.get('f') || '';
+const names = Object.keys(MANIFEST).filter(n => new RegExp(filter).test(n));
+const cols = parseInt(params.get('cols') || '8');
+const cell = parseFloat(params.get('cell') || '6');
+const r = new THREE.WebGLRenderer({ antialias: true }); r.setSize(innerWidth, innerHeight); r.toneMapping = THREE.ACESFilmicToneMapping; r.shadowMap.enabled = true; document.body.appendChild(r.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x151a24); scene.fog = new THREE.FogExp2(0x151a24, params.has('fog') ? 0.012 : 0);
+const cam = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 500);
+const moon = new THREE.DirectionalLight(0x9fb4d8, params.has('night') ? 1.7 : 2.5); moon.position.set(40, 60, -30); moon.castShadow = true; moon.shadow.mapSize.set(2048, 2048);
+const rows = Math.ceil(names.length / cols); const W = cols * cell, H = rows * cell;
+Object.assign(moon.shadow.camera, { left: -W, right: W, top: H, bottom: -H, near: 1, far: 200 }); scene.add(moon);
+scene.add(new THREE.HemisphereLight(0x3a4a66, 0x1a140c, params.has('night') ? 0.75 : 1.2));
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(W + 20, H + 20), new THREE.MeshStandardMaterial({ color: 0x2e3a22, roughness: 1 })); ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; ground.position.set(W / 2 - cell / 2, 0, H / 2 - cell / 2); scene.add(ground);
+const lib = new AssetLib();
+const world = { group: scene, colliders: { addCircle() {}, addOBB() {} }, addLight: (p, c, i, d) => { const l = new THREE.PointLight(c, i, d, 2); l.position.copy(p); scene.add(l); return { on: true }; } };
+await lib.loadAll(names, () => {});
+const labels = document.getElementById('labels');
+names.forEach((n, i) => {
+  if (!lib.has(n)) return;
+  const x = (i % cols) * cell, z = Math.floor(i / cols) * cell;
+  const t = lib.template(n);
+  lib.place(world, n, x, z, { y: 0, yaw: -0.4 });
+  const lab = document.createElement('div'); lab.textContent = `${n} ${t.size.x.toFixed(1)}x${t.size.y.toFixed(1)}x${t.size.z.toFixed(1)}`; lab.dataset.x = x; lab.dataset.z = z; labels.appendChild(lab);
+});
+const lookX = W / 2 - cell / 2, lookZ = H / 2 - cell / 2;
+cam.position.set(lookX, Math.max(W, H) * 0.9 + 6, lookZ + Math.max(W, H) * 0.75); cam.lookAt(lookX, 0, lookZ);
+function frame() {
+  r.render(scene, cam);
+  for (const lab of labels.children) { const v = new THREE.Vector3(parseFloat(lab.dataset.x), 0, parseFloat(lab.dataset.z) + cell * 0.45).project(cam); lab.style.left = ((v.x + 1) / 2 * innerWidth) + 'px'; lab.style.top = ((1 - v.y) / 2 * innerHeight) + 'px'; }
+  window.__ready = true;
+}
+frame(); setInterval(frame, 500);
+window.__lib = lib;
+</script></body></html>

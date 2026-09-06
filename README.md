@@ -36,6 +36,8 @@ Desktop browser with a mouse and keyboard required (Chrome, Edge, Firefox or Saf
 
 The **Quality** selector on the title screen trades shadows, bloom and anti-aliasing for frame rate on weaker machines.
 
+![The churchyard](docs/screenshots/churchyard.jpg)
+
 ## What's in the village
 
 - A procedurally generated English village: thatched and slate-roofed cottages, a brick coaching inn, a stone schoolhouse, the vicarage, a Norman church with a bell tower and a full churchyard, dry-stone walls, a village green with a well, a field of scarecrows, a marsh with a stone circle, and woods all round.
@@ -44,7 +46,7 @@ The **Quality** selector on the title screen trades shadows, bloom and anti-alia
 - Two endings, decided by what you choose to do when the bell rings.
 - Something tall that stands at the end of lanes and is closer each time you look back.
 - A fully procedural soundscape: wind, owls, crows, footsteps that change with the ground, creaking doors, the church bell, whispers from the marsh and your own heartbeat. No audio files.
-- Everything visual is generated at load time as well: every texture is drawn on a canvas, every building, tree and gravestone is built from code. There are no model or image assets in the repository.
+- The buildings, terrain, sky, water and every texture are generated at load time in code. The woods, churchyard and clutter use CC0 low-poly models from the KayKit Halloween Bits pack and Kenney's Graveyard, Nature and Survival kits (see `THIRD_PARTY_LICENSES.md`), recoloured for moonlight and batched into a handful of draw calls.
 
 ## Technical notes
 
@@ -52,11 +54,12 @@ The **Quality** selector on the title screen trades shadows, bloom and anti-alia
 - Rendering: `WebGLRenderer` with ACES tone mapping, moon-lit directional shadows, a pool of point lights assigned each frame to the nearest lanterns and candles, `UnrealBloomPass`, a custom colour-grade / grain / vignette pass and FXAA.
 - World: a height-field terrain with a three-way splat shader (grass, mud, cobbles), a custom sky shader (stars, clouds, an oversized moon and a dawn), a shader-driven marsh, wind-swayed reeds, instanced procedural trees, ground mist, falling leaves, chimney smoke, wisps and bats.
 - Static geometry is merged by material into spatial chunks after the village is built, which keeps draw calls manageable.
+- `src/world/assets.js` is the model library: a manifest of CC0 glTF files with target sizes and collider shapes, a loader that flattens each file into plain meshes with shared materials, and helpers to place or instance them. `dev/catalogue.html` renders every model in the manifest for inspection.
 - `src/story.js` holds all of the clue text and the act structure; `src/world/village.js` is the village layout.
 
 ### Developer flags
 
-Append these to the URL for testing:
+Append these to the URL for testing (`noassets` builds the fully procedural village without the model packs):
 
 - `?debug` skips the title screen and starts immediately (add `&x=..&z=..&yaw=..` to spawn somewhere specific).
 - `?debug&act=3` starts with the bell already rung.

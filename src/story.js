@@ -312,7 +312,7 @@ export class Story {
       if (g.world.lychGate) { g.world.lychGate.locked = false; if (g.world.lychGate.chain) g.world.lychGate.chain.visible = false; g.world.lychGate.lockedMsg = ''; }
       if (g.world.church) g.world.church.door.locked = false;
       const L = g.world.causewayLanterns || [];
-      L.forEach((l, i) => this.after(1 + i * 1.4, () => { l.light.on = true; l.light.intensity = 3.5; l.mat.emissive.setHex(0xffa040); }));
+      L.forEach((l, i) => this.after(1 + i * 1.4, () => { if (l.setLit) l.setLit(true); else { l.light.on = true; l.light.intensity = 3.5; } }));
     });
     this.after(20, () => g.entities.villagers.show());
     this.after(36, () => {
@@ -404,7 +404,7 @@ export class Story {
     this.after(3, () => g.ui.sayNow('The third stroke rolls out over the roofs and the reeds and the black water, and does not stop rolling.', 6));
     this.after(7, () => { g.audio.exhale(); g.ui.say('Far away, something in the marsh breathes out for the last time.', 5, true); });
     const L = g.world.causewayLanterns || [];
-    L.forEach((l, i) => this.after(8 + i * 0.6, () => { l.light.on = false; l.mat.emissive.setHex(0x000000); }));
+    L.forEach((l, i) => this.after(8 + i * 0.6, () => { if (l.setLit) l.setLit(false); else { l.light.on = false; l.light.intensity = 0; } }));
     this.after(14, () => { g.dawn = true; g.audio.birds(); g.ui.say('Beyond the tower windows the sky is turning grey. It is a long time since you saw a sky do that.', 6); });
     this.after(30, () => this.finish('THE REFUSAL', `Wray's bell rang out three times across the marsh, for the first time in three hundred years, and the thing that waited among the stones found that it could not abide it.
 

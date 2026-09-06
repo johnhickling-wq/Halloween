@@ -149,7 +149,8 @@ export function buildVillage(world, M) {
   stoneWall(world, M, [[-gapN, cy.z0], [cy.x0, cy.z0]]);
   stoneWall(world, M, [[cy.x0, cy.z0], [cy.x0, cy.z1]]);
   // gate posts at the south gate
-  for (const s of [-1, 1]) { const p = mkBox(0.5, 1.9, 0.5, M.stone, 1); p.position.set(s * (gapS + 0.25), ground(0, cy.z1) + 0.95, cy.z1); world.group.add(p); }
+  if (world.assets && world.assets.has('kk_arch')) world.assets.place(world, 'kk_arch', 0, cy.z1, { yaw: 0, scale: 1.05 });
+  else for (const s of [-1, 1]) { const p = mkBox(0.5, 1.9, 0.5, M.stone, 1); p.position.set(s * (gapS + 0.25), ground(0, cy.z1) + 0.95, cy.z1); world.group.add(p); }
   lychGate(world, M, 0, cy.z0, 0);
   // path lanterns on the churchyard wall by the gate
   jackOLantern(world, M, -2.6, cy.z1, 0.3, 1.0, ground(0, cy.z1) + 1.16, 0);
@@ -164,12 +165,12 @@ export function buildVillage(world, M) {
   for (let r = 0; r < 3; r++) for (let i = 0; i < 8; i++) {
     const x = 16 + r * 2.8 + graveRng.float(-0.3, 0.3), z = -62 + i * 3.0 + graveRng.float(-0.4, 0.4);
     if (Math.abs(z - (-52)) < 5 && x < 15) continue;
-    tryGrave(x, z, graveRng.float(-0.15, 0.15), graveRng.pick(EPITAPHS), { type: graveRng.chance(0.2) ? 'cross' : 'tablet', lean: graveRng.float(-0.08, 0.08), seed: graveRng.int(1, 9999), h: graveRng.float(0.8, 1.2) });
+    tryGrave(x, z, -Math.PI / 2 + graveRng.float(-0.15, 0.15), graveRng.pick(EPITAPHS), { type: graveRng.chance(0.2) ? 'cross' : 'tablet', lean: graveRng.float(-0.08, 0.08), seed: graveRng.int(1, 9999), h: graveRng.float(0.8, 1.2) });
   }
   // west rows (beyond the tower)
   for (let r = 0; r < 2; r++) for (let i = 0; i < 8; i++) {
     const x = -22 + r * 2.8 + graveRng.float(-0.3, 0.3), z = -64 + i * 3.4 + graveRng.float(-0.4, 0.4);
-    tryGrave(x, z, Math.PI + graveRng.float(-0.15, 0.15), graveRng.pick(EPITAPHS), { type: graveRng.chance(0.25) ? 'cross' : 'tablet', lean: graveRng.float(-0.1, 0.1), seed: graveRng.int(1, 9999), h: graveRng.float(0.8, 1.2) });
+    tryGrave(x, z, Math.PI / 2 + graveRng.float(-0.15, 0.15), graveRng.pick(EPITAPHS), { type: graveRng.chance(0.25) ? 'cross' : 'tablet', lean: graveRng.float(-0.1, 0.1), seed: graveRng.int(1, 9999), h: graveRng.float(0.8, 1.2) });
   }
   // south of the nave (between the path and the east wall)
   for (let i = 0; i < 5; i++) {
@@ -181,9 +182,9 @@ export function buildVillage(world, M) {
   world.mark('maud_grave', -9.5, ground(-9.5, -41.5), -41.5);
   // the guests: a row along the north wall, east of the lych gate
   const guests = [['A GUEST', 'of this parish', 'departed', '1st November 1901'], ['A GUEST', 'of this parish', 'departed', '1st November 1926'], ['A GUEST', 'of this parish', 'departed', '1st November 1951'], ['A GUEST', 'of this parish', 'departed', '1st November 1976'], ['A GUEST', 'of this parish', 'departed', '1st November 2001']];
-  guests.forEach((lines, i) => tryGrave(5.5 + i * 2.4, -65.2, Math.PI, lines, { clue: i === 4 ? 'guest_graves' : undefined, seed: 100 + i, w: 0.6, h: 0.9 }));
+  guests.forEach((lines, i) => tryGrave(5.5 + i * 2.4, -65.2, 0, lines, { clue: i === 4 ? 'guest_graves' : undefined, seed: 100 + i, w: 0.6, h: 0.9 }));
   // the fresh one, with an open grave in front of it
-  world.freshGrave = tryGrave(18.2, -65.2, Math.PI, ['A GUEST', 'of this parish', 'departed', '1st November 2026'], { clue: 'fresh_grave', fresh: true, seed: 999, w: 0.62, h: 0.92 });
+  world.freshGrave = tryGrave(18.2, -65.2, 0, ['A GUEST', 'of this parish', 'departed', '1st November 2026'], { clue: 'fresh_grave', fresh: true, seed: 999, w: 0.62, h: 0.92 });
   openGrave(world, M, 18.2, -63.4, Math.PI);
   world.mark('fresh_grave', 18.2, ground(18.2, -63.4), -63.4);
   world.gravePositions = gravePositions;
@@ -235,7 +236,12 @@ export function buildVillage(world, M) {
   scarecrow(world, M, 36, 34, 0.4); scarecrow(world, M, 48, 40, -0.6); scarecrow(world, M, 41, 52, 2.4); scarecrow(world, M, 57, 47, 1.3);
   // pumpkin patch
   const patch = new RNG(9);
-  for (let i = 0; i < 14; i++) { const x = 30 + patch.float(0, 32), z = 28 + patch.float(0, 30); if (Math.hypot(x - 36, z - 34) < 2) continue; jackOLantern(world, M, x, z, patch.float(0, 6.28), patch.float(0.6, 1.1), null, patch.int(0, 2)); }
+  for (let i = 0; i < 26; i++) {
+    const x = 30 + patch.float(0, 32), z = 28 + patch.float(0, 30);
+    if (Math.hypot(x - 36, z - 34) < 2) continue;
+    if (i < 6 || !world.assets || !world.assets.has('gy_pumpkin')) jackOLantern(world, M, x, z, patch.float(0, 6.28), patch.float(0.6, 1.1), null, patch.int(0, 2));
+    else world.assets.place(world, patch.pick(['gy_pumpkin', 'gy_pumpkin_tall', 'kk_pumpkin', 'kk_pumpkin_small', 'gy_pumpkin']), x, z, { yaw: patch.float(0, 6.28), scale: patch.float(0.8, 1.3) });
+  }
 
   // ---------------- the marsh and the stones ----------------
   const stones = [];
@@ -259,11 +265,52 @@ export function buildVillage(world, M) {
     world.causewayLanterns.push(h);
   }
 
+  if (!(world.assets && world.assets.has('kk_arch'))) {
   // south gate of the churchyard: an iron gate standing open (two leaves)
-  for (const s of [-1, 1]) {
-    const gate = new THREE.Group(); gate.position.set(s * gapS, ground(0, cy.z1), cy.z1); gate.rotation.y = s * 1.9; world.group.add(gate);
-    for (let i = 0; i < 6; i++) { const bar = mkBox(0.03, 1.5, 0.03, M.iron, 1); bar.position.set(-s * (0.12 + i * 0.28), 0.8, 0); gate.add(bar); }
-    for (const y of [0.25, 1.4]) { const rail = mkBox(1.6, 0.04, 0.04, M.iron, 1); rail.position.set(-s * 0.85, y, 0); gate.add(rail); }
+    for (const s of [-1, 1]) {
+      const gate = new THREE.Group(); gate.position.set(s * gapS, ground(0, cy.z1), cy.z1); gate.rotation.y = s * 1.9; world.group.add(gate);
+      for (let i = 0; i < 6; i++) { const bar = mkBox(0.03, 1.5, 0.03, M.iron, 1); bar.position.set(-s * (0.12 + i * 0.28), 0.8, 0); gate.add(bar); }
+      for (const y of [0.25, 1.4]) { const rail = mkBox(1.6, 0.04, 0.04, M.iron, 1); rail.position.set(-s * 0.85, y, 0); gate.add(rail); }
+    }
   }
+  dressVillage(world, M);
   return { pub, school, vicarage, widow, maud, church };
+}
+
+
+// Extra set dressing from the CC0 packs (no-op without the asset library).
+function dressVillage(world, M) {
+  const lib = world.assets;
+  if (!lib) return;
+  const P = (name, x, z, o = {}) => { if (lib.has(name)) return lib.place(world, name, x, z, o); return null; };
+  const rng = new RNG(31);
+  // churchyard: a family mausoleum, a smaller crypt, an obelisk, urns by the porch path
+  P('kk_crypt', 19, -44.5, { yaw: Math.PI * 0.5 + 0.1 });
+  P('gy_crypt_small', -20.5, -45.5, { yaw: -Math.PI * 0.5 });
+  P('gy_pillar_obelisk', 14, -58.5, { yaw: 0.2 });
+  P('gy_urn_round', -3.2, -43.6, { yaw: 0 }); P('gy_urn_square', -6.8, -44.4, { yaw: 0.3 });
+  P('gy_cross_wood', 3, -62, { yaw: Math.PI + 0.1, scale: 1.1 }); P('gy_cross_wood', -18.5, -56, { yaw: Math.PI - 0.2 });
+  P('gy_shovel_dirt', 16.6, -62.4, { yaw: 0.6 });
+  P('tree_dead_large_decorated', -6, -60, { yaw: 1.2, scale: 1.1 });
+  // by the stones: braziers and a shrine that someone tends
+  for (const [x, z] of [[9.5, -114.5], [22.5, -125.5]]) { const b = P('gy_fire_basket', x, z, { yaw: rng.float(0, 6.28), lightIntensity: 4, lightDistance: 10, lightColor: 0xff7a2a, lightOff: true }); if (b) { const light = b.userData.light; const r = { light, setLit: (v) => { light.on = v; light.intensity = v ? 4 : 0; } }; world.causewayLanterns = world.causewayLanterns || []; world.causewayLanterns.push(r); } }
+  P('kk_shrine_candles', 8.5, -110.5, { yaw: -0.8, lightIntensity: 2.2, lightDistance: 6 });
+  P('kk_lantern_standing', 0.8, -70.5, { yaw: 0.3, lightIntensity: 2.5, lightDistance: 6 });
+  // village clutter
+  P('sv_barrel', 27.5, 4.2, { yaw: 0.2 }); P('sv_barrel', 28.3, 3.2, { yaw: 1.1 }); P('sv_barrel_open', 27.2, 2.6, { yaw: 2.0 });
+  P('sv_box', 26.6, 5.6, { yaw: 0.4 }); P('sv_box_large', -18.5, 24.5, { yaw: 0.9 });
+  P('sv_anvil', 17.6, 27.6, { yaw: -1.2 }); P('nk_log_stack_large', 17.2, 34.6, { yaw: 0.2 });
+  for (const [x, z] of [[33, 30], [46, 55], [60, 38]]) P('gy_hay_bale', x, z, { yaw: rng.float(0, 6.28) });
+  P('gy_bench_damaged', -2.5, 20, { yaw: Math.PI * 0.8 });
+  // bushes at the corners of the cottages
+  for (const b of (world.buildings || [])) {
+    const g = b.group, w = b.spec.w, d = b.spec.d || 6;
+    for (const [lx, lz] of [[-w / 2 - 0.9, d / 2 + 0.6], [w / 2 + 0.9, d / 2 + 0.8]]) {
+      if (!rng.chance(0.7)) continue;
+      const [x, z] = b.toWorld(lx, lz);
+      P(rng.pick(['nk_bush', 'nk_bush_large', 'nk_bush_detailed']), x, z, { yaw: rng.float(0, 6.28), scale: rng.float(0.7, 1.1) });
+    }
+  }
+  // Rook Lane: a stump and a mossy rock by the dead lamp
+  P('nk_stump_old_tall', -43, -5, { yaw: 0.5 }); P('nk_rock_large_b', -52, -10, { yaw: 1.4 });
 }

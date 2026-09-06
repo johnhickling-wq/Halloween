@@ -4,6 +4,7 @@ import { terrainHeight } from './terrain.js';
 import { mkBox, Door } from './buildings.js';
 import { RNG } from '../util/noise.js';
 import { gravestoneTexture, pumpkinTextures, fingerpostTexture } from '../util/textures.js';
+import { hash2 } from '../util/noise.js';
 
 const UP = new THREE.Vector3(0, 1, 0);
 
@@ -65,7 +66,7 @@ export function stoneWall(world, M, pts, h = 1.1, thick = 0.5, tag = 'wall') {
   return g;
 }
 
-export function fence(world, M, pts, h = 1.0) {
+export function fenceProcedural(world, M, pts, h = 1.0) {
   const g = new THREE.Group(); world.group.add(g);
   for (let i = 0; i < pts.length - 1; i++) {
     const [x0, z0] = pts[i], [x1, z1] = pts[i + 1];
@@ -90,7 +91,7 @@ export function fence(world, M, pts, h = 1.0) {
 }
 
 const stoneGeoCache = {};
-export function gravestone(world, M, x, z, yaw, lines, opts = {}) {
+export function gravestoneProcedural(world, M, x, z, yaw, lines, opts = {}) {
   const y = terrainHeight(x, z);
   const type = opts.type || 'tablet';
   const g = new THREE.Group(); g.position.set(x, y - 0.05, z); g.rotation.y = yaw + (opts.lean ?? 0) * 0; g.rotation.z = opts.lean ?? 0; world.group.add(g);
@@ -200,7 +201,7 @@ export function scarecrow(world, M, x, z, yaw) {
   return g;
 }
 
-export function hangingLantern(world, M, x, z, lit = true, tall = 2.2) {
+export function hangingLanternProcedural(world, M, x, z, lit = true, tall = 2.2) {
   const y = terrainHeight(x, z);
   const g = new THREE.Group(); g.position.set(x, y, z); world.group.add(g);
   const pole = mkBox(0.08, tall, 0.08, M.woodDark, 1); pole.position.y = tall / 2; g.add(pole);
@@ -232,7 +233,7 @@ export function noticeBoard(world, M, x, z, yaw) {
   return g;
 }
 
-export function bench(world, M, x, z, yaw) {
+export function benchProcedural(world, M, x, z, yaw) {
   const y = terrainHeight(x, z);
   const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = yaw; world.group.add(g);
   const seat = mkBox(1.6, 0.06, 0.4, M.wood, 1); seat.position.y = 0.45; g.add(seat);
@@ -264,7 +265,7 @@ export function trough(world, M, x, z, yaw) {
   return g;
 }
 
-export function logPile(world, M, x, z, yaw) {
+export function logPileProcedural(world, M, x, z, yaw) {
   const y = terrainHeight(x, z);
   const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = yaw; world.group.add(g);
   const logGeo = new THREE.CylinderGeometry(0.12, 0.12, 0.9, 8);
@@ -317,4 +318,101 @@ export function lychGate(world, M, x, z, yaw = 0) {
   world.mark('lychgate', x, y, z);
   world.lychGate = door;
   return door;
+}
+
+
+// ---------------------------------------------------------------------------
+// Model-backed props (CC0 packs). Each falls back to the procedural version if the model is missing.
+const GRAVE_MODELS = ['gy_gravestone_round', 'gy_gravestone_bevel', 'gy_gravestone_wide', 'gy_gravestone_roof', 'gy_gravestone_decorative', 'kk_gravestone', 'kk_grave_a', 'kk_grave_b', 'kk_gravemarker_a', 'kk_gravemarker_b', 'gy_gravestone_round', 'kk_gravestone', 'gy_gravestone_bevel'];
+const CROSS_MODELS = ['gy_gravestone_cross', 'gy_cross_wood', 'gy_gravestone_cross_large', 'gy_gravestone_cross'];
+
+export function gravestone(world, M, x, z, yaw, lines, opts = {}) {
+  const lib = world.assets;
+  if (!lib || !lib.has('gy_gravestone_round')) return gravestoneProcedural(world, M, x, z, yaw, lines, opts);
+  const y = terrainHeight(x, z);
+  const rng = new RNG(opts.seed ?? Math.floor(Math.abs(x * 31 + z * 7)));
+  let pool = opts.type === 'cross' ? CROSS_MODELS : GRAVE_MODELS;
+  if (opts.fresh) pool = ['gy_gravestone_round'];
+  let name = opts.model || rng.pick(pool);
+  if (!lib.has(name)) name = 'gy_gravestone_round';
+  if (!opts.fresh && !opts.clue && rng.chance(0.12) && lib.has('gy_gravestone_broken')) name = 'gy_gravestone_broken';
+  const scale = opts.scaleMul ?? rng.float(0.9, 1.12);
+  const g = lib.place(world, name, x, z, { yaw, tilt: opts.lean ?? 0, scale });
+  const action = opts.clue ? { type: 'clue', id: opts.clue } : { type: 'flavour', text: lines.join(' — ') };
+  g.traverse((o) => { if (o.isMesh) { o.userData.interact = { label: 'Read the inscription', action }; world.interactables.push(o); } });
+  if (opts.clue || opts.fresh || opts.inscribe) {
+    // a carved panel on the face of the stone
+    const t = lib.template(name);
+    const tex = gravestoneTexture(lines, opts.seed ?? 1, !!opts.fresh);
+    const w = t.size.x * scale * 0.72, h = t.size.y * scale * 0.5;
+    const plane = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.95 }));
+    const off = new THREE.Vector3(0, t.size.y * scale * 0.5, t.max.z * scale + 0.012).applyAxisAngle(UP, yaw);
+    plane.position.set(x + off.x, y + off.y, z + off.z);
+    plane.rotation.y = yaw;
+    plane.userData.interact = { label: 'Read the inscription', action };
+    world.interactables.push(plane);
+    world.group.add(plane);
+  }
+  world.graves = world.graves || [];
+  world.graves.push({ x, y, z, group: g });
+  return g;
+}
+
+export function fence(world, M, pts, h = 1.0, model = 'nk_fence_planks') {
+  const lib = world.assets;
+  if (!lib || !lib.has(model)) return fenceProcedural(world, M, pts, h);
+  const t = lib.template(model);
+  const segLen = Math.max(0.5, t.size.x);
+  const g = new THREE.Group(); world.group.add(g);
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [x0, z0] = pts[i], [x1, z1] = pts[i + 1];
+    const dx = x1 - x0, dz = z1 - z0;
+    const len = Math.hypot(dx, dz);
+    const n = Math.max(1, Math.round(len / segLen));
+    const k = (len / n) / segLen;
+    const ang = Math.atan2(dz, dx);
+    for (let j = 0; j < n; j++) {
+      const tt = (j + 0.5) / n;
+      const cx = x0 + dx * tt, cz = z0 + dz * tt;
+      const alt = hash2(cx * 0.37, cz * 0.53) < 0.2 && lib.has('nk_fence_simple') ? 'nk_fence_simple' : model;
+      lib.place(world, alt, cx, cz, { yaw: -ang, scale: k * (h / 1.0), collider: 'none', parent: g });
+    }
+    world.colliders.addSegment(x0, z0, x1, z1, 0.12, 'fence');
+  }
+  return g;
+}
+
+export function hangingLantern(world, M, x, z, lit = true, tall = 2.2) {
+  const lib = world.assets;
+  if (!lib || !lib.has('kk_post_lantern')) {
+    const r = hangingLanternProcedural(world, M, x, z, lit, tall);
+    r.setLit = (v) => { r.light.on = v; r.light.intensity = v ? 3.5 : 0; r.mat.emissive.setHex(v ? 0xffa040 : 0x000000); };
+    return r;
+  }
+  const yaw = hash2(x * 0.11, z * 0.17) * Math.PI * 2;
+  const g = lib.place(world, 'kk_post_lantern', x, z, { yaw, scale: tall / 2.6, lightIntensity: 3.5, lightDistance: 9, lightOff: !lit });
+  const light = g.userData.light;
+  const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: world.tex.blob, color: 0xffa040, transparent: true, opacity: 0.45, blending: THREE.AdditiveBlending, depthWrite: false, fog: true }));
+  glow.scale.setScalar(0.7 * tall / 2.6);
+  glow.position.copy(light.pos);
+  glow.visible = lit;
+  world.group.add(glow);
+  world.colliders.addCircle(x, z, 0.12, 'lantern');
+  const r = { group: g, light, glow, setLit: (v) => { light.on = v; light.intensity = v ? 3.5 : 0; glow.visible = v; } };
+  world.pathLanterns = world.pathLanterns || [];
+  world.pathLanterns.push(r);
+  return r;
+}
+
+export function bench(world, M, x, z, yaw) {
+  const lib = world.assets;
+  const name = hash2(x, z) < 0.5 ? 'kk_bench' : 'gy_bench';
+  if (!lib || !lib.has(name)) return benchProcedural(world, M, x, z, yaw);
+  return lib.place(world, name, x, z, { yaw: yaw + Math.PI });
+}
+
+export function logPile(world, M, x, z, yaw) {
+  const lib = world.assets;
+  if (!lib || !lib.has('nk_log_stack_large')) return logPileProcedural(world, M, x, z, yaw);
+  return lib.place(world, hash2(x, z) < 0.5 ? 'nk_log_stack_large' : 'nk_log_stack', x, z, { yaw });
 }

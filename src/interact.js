@@ -4,7 +4,7 @@ export class Interact {
   constructor(game) {
     this.g = game;
     this.ray = new THREE.Raycaster();
-    this.ray.far = 3.4;
+    this.ray.far = 3.8;
     this.hit = null;
     this.center = new THREE.Vector2(0, 0);
   }
