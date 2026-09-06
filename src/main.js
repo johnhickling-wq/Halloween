@@ -16,6 +16,7 @@ import { Story, CLUES } from './story.js';
 import { Interact } from './interact.js';
 import { AudioSys } from './audio.js';
 import { Entities } from './entities.js';
+import { TouchControls, isTouchDevice, isPhone } from './touch.js';
 
 const params = new URLSearchParams(location.search);
 const DEBUG = params.has('debug');
@@ -23,7 +24,12 @@ const DEBUG = params.has('debug');
 class Game {
   constructor() {
     this.settings = { sensitivity: 1, bob: 1 };
-    this.quality = params.get('q') || document.getElementById('quality').value || 'high';
+    this.touchDevice = isTouchDevice();
+    // phones get the cheap tier, tablets the middle one; the selector still overrides
+    this.quality = params.get('q') || (this.touchDevice ? (isPhone() ? 'low' : 'medium') : 'high');
+    document.getElementById('quality').value = this.quality;
+    this.perf = { t: 0, frames: 0, step: 0 };
+    this.portraitBlocked = false;
     this.time = 0;
     this.fear = 0;
     this.dark = 0;
@@ -40,9 +46,10 @@ class Game {
 
   async init() {
     const app = document.getElementById('app');
+    this.app = app;
     const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance', stencil: false });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, this.quality === 'high' ? 1.5 : 1));
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, this.quality === 'high' ? 1.5 : this.quality === 'medium' ? 1.25 : 1));
+    renderer.setSize(app.clientWidth || window.innerWidth, app.clientHeight || window.innerHeight);
     renderer.shadowMap.enabled = this.quality !== 'low';
     renderer.shadowMap.type = THREE.PCFShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -57,7 +64,7 @@ class Game {
     this.fogDawn = new THREE.Color(0x8a94a0);
     scene.fog = new THREE.FogExp2(this.fogColor, 0.016);
 
-    const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.08, 1400);
+    const camera = new THREE.PerspectiveCamera(70, (app.clientWidth || window.innerWidth) / (app.clientHeight || window.innerHeight), 0.08, 1400);
     this.camera = camera;
     this.ui = new UI();
     this.audio = new AudioSys();
@@ -118,6 +125,7 @@ class Game {
 
     // player & systems
     this.input = new Input(renderer.domElement);
+    if (this.touchDevice) { this.touch = new TouchControls(this, this.input); this.touch.enable(); this.touch.setVisible(false); }
     this.player = new Player(camera, this.world, this.input, this.settings);
     const start = this.world.labels.get('start');
     this.player.teleport(start.x, start.z, 0);
@@ -130,8 +138,11 @@ class Game {
     this.audio.onBeat = () => { this.pulse = 1; };
 
     this.post = new PostFX(renderer, scene, camera, this.quality);
-    window.addEventListener('resize', () => this.onResize());
+    window.addEventListener('resize', () => { this.onResize(); this.checkOrientation(); });
+    if (window.visualViewport) window.visualViewport.addEventListener('resize', () => this.onResize());
+    if (screen.orientation) screen.orientation.addEventListener('change', () => setTimeout(() => { this.onResize(); this.checkOrientation(); }, 120));
     this.bindUI();
+    this.checkOrientation();
 
     this.lastTime = performance.now();
     renderer.info.autoReset = false;
@@ -152,8 +163,9 @@ class Game {
     document.getElementById('sens').addEventListener('input', (e) => { this.settings.sensitivity = parseFloat(e.target.value); });
     document.getElementById('bob').addEventListener('input', (e) => { this.settings.bob = parseFloat(e.target.value); });
     document.getElementById('quality').addEventListener('change', (e) => { const u = new URL(location.href); u.searchParams.set('q', e.target.value); location.href = u.toString(); });
+    ui.onScreenChange = () => { if (this.touch) this.touch.setVisible(this.started && !this.paused && !ui.open && !this.portraitBlocked); };
     input.onLockChange = (locked) => {
-      if (!this.started || this.story.finished) return;
+      if (!this.started || this.story.finished || this.touchDevice) return;
       if (!locked) {
         if (ui.open === 'intro') return;
         ui.hideNote(); ui.hideJournal();
@@ -170,11 +182,39 @@ class Game {
       if (code === 'KeyJ' || code === 'Tab') { ui.renderJournal(this.story, this.world, this.player); this.audio.paper(); }
     };
     // clicking the canvas while paused resumes
-    this.renderer.domElement.addEventListener('click', () => { if (this.started && !this.input.locked && !this.story.finished && ui.open !== 'intro') this.resume(); });
-    document.getElementById('pause').addEventListener('click', (e) => { if (e.target.id === 'pause') this.resume(); });
+    this.renderer.domElement.addEventListener('click', () => { if (this.started && !this.touchDevice && !this.input.locked && !this.story.finished && ui.open !== 'intro') this.resume(); });
+    // on touch there are no keys: a tap puts the paper down or shuts the book.
+    // a tap that opens a screen also emits a click a moment later, which must not close it again.
+    const settled = () => performance.now() - (ui.openedAt || 0) > 400;
+    document.getElementById('note').addEventListener('click', () => { if (ui.open === 'note' && settled()) { ui.hideNote(); this.audio.paper(); } });
+    document.getElementById('journal').addEventListener('click', () => { if (ui.open === 'journal' && settled()) ui.hideJournal(); });
+    document.getElementById('pause').addEventListener('click', (e) => { if (e.target.id === 'pause' && settled()) this.resume(); });
     document.getElementById('intro').addEventListener('click', () => { if (ui.open === 'intro') this.finishIntro(); });
   }
-  resume() { this.input.lock(); if (this.debug) { this.paused = false; this.ui.screen('pause', false); } }
+  resume() {
+    if (this.touchDevice) { this.paused = false; this.ui.screen('pause', false); this.audio.resume(); return; }
+    this.input.lock();
+    if (this.debug) { this.paused = false; this.ui.screen('pause', false); }
+  }
+
+  pauseFromTouch() {
+    if (!this.started || this.story.finished) return;
+    this.ui.hideNote(); this.ui.hideJournal();
+    this.paused = true;
+    this.ui.screen('pause', true);
+    this.audio.suspend();
+    document.getElementById('pauseHint').textContent = this.story.objectiveText || '';
+  }
+
+  // Landscape only on touch: portrait shows the turn-the-device card and holds the game.
+  checkOrientation() {
+    if (!this.touchDevice) return;
+    const portrait = window.innerHeight > window.innerWidth;
+    document.body.classList.toggle('portrait', portrait);
+    this.portraitBlocked = portrait;
+    if (portrait) this.audio.suspend();
+    else if (this.started && !this.paused && this.audio.ready) this.audio.resume();
+  }
 
   startGame() {
     if (this.started) return;
@@ -182,6 +222,7 @@ class Game {
     const name = (nameEl.value || '').trim().slice(0, 24) || 'Alice Marlow';
     this.started = true;
     this.audio.start();
+    if (this.touchDevice) this.goFullscreen();
     this.ui.screen('title', false);
     this.player.teleport(this.world.labels.get('start').x, this.world.labels.get('start').z, 0);
     // the letter
@@ -194,12 +235,40 @@ class Game {
     if (this.ui.open !== 'intro') return;
     clearTimeout(this.introTimer);
     this.ui.hideIntro();
-    this.input.lock();
+    if (!this.touchDevice) this.input.lock();
     this.ui.fade(false, 'slow');
     this.ui.showHud(true);
     this.story.begin(this.pendingName);
     // if the browser refused pointer lock (no user gesture), fall back to the pause screen so a click can grab it
-    setTimeout(() => { if (!this.input.locked && !this.debug && !this.story.finished) { this.paused = true; this.ui.screen('pause', true); document.getElementById('pauseHint').textContent = 'Click Resume to take up the lantern.'; } }, 700);
+    if (!this.touchDevice) setTimeout(() => { if (!this.input.locked && !this.debug && !this.story.finished) { this.paused = true; this.ui.screen('pause', true); document.getElementById('pauseHint').textContent = 'Click Resume to take up the lantern.'; } }, 700);
+  }
+
+  goFullscreen() {
+    const el = document.documentElement;
+    const req = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (req) { try { const p = req.call(el, { navigationUI: 'hide' }); if (p && p.catch) p.catch(() => {}); } catch (e) { /* iPhone Safari has no element fullscreen */ } }
+    if (screen.orientation && screen.orientation.lock) { try { const p = screen.orientation.lock('landscape'); if (p && p.catch) p.catch(() => {}); } catch (e) { /* iOS cannot lock orientation */ } }
+  }
+
+  // If the device cannot keep up, shed the expensive things rather than crawl.
+  downgrade(fps) {
+    this.perf.step++;
+    const step = this.perf.step;
+    if (step === 1) {
+      this.renderer.setPixelRatio(1);
+      if (this.post.bloom) this.post.bloom.enabled = false;
+      if (this.post.fxaa) this.post.fxaa.enabled = false;
+      this.onResize();
+      this.ui.toast('EASING THE LANTERN LIGHT', 3);
+    } else if (step === 2) {
+      this.renderer.setPixelRatio(0.8);
+      this.moon.castShadow = false;
+      if (this.moon.shadow.map) { this.moon.shadow.map.dispose(); this.moon.shadow.map = null; }
+      this.fx.leaves.mesh.visible = false;
+      this.onResize();
+      this.ui.toast('THE FOG THICKENS', 3);
+    }
+    console.log(`[perf] downgrade step ${step} at ${fps.toFixed(1)} fps`);
   }
 
   buildLantern() {
@@ -230,7 +299,8 @@ class Game {
   }
 
   onResize() {
-    const w = window.innerWidth, h = window.innerHeight;
+    const w = (this.app && this.app.clientWidth) || window.innerWidth;
+    const h = (this.app && this.app.clientHeight) || window.innerHeight;
     this.camera.aspect = w / h; this.camera.updateProjectionMatrix();
     this.renderer.setSize(w, h);
     this.post.setSize(w, h);
@@ -258,10 +328,21 @@ class Game {
   loop() {
     requestAnimationFrame(() => this.loop());
     const now = performance.now();
-    const dt = Math.min((now - this.lastTime) / 1000, 0.05) * this.timeScale;
-    this.frameMs = this.frameMs * 0.9 + (now - this.lastTime) * 0.1; this.frames++;
+    const rawMs = now - this.lastTime;
+    const dt = Math.min(rawMs / 1000, 0.05) * this.timeScale;
+    this.frameMs = this.frameMs * 0.9 + rawMs * 0.1; this.frames++;
     this.lastTime = now;
-    const active = this.started && !this.paused && (this.input.locked || this.debug) && this.ui.open !== 'intro';
+    if (this.touch) this.touch.update();
+    const active = this.started && !this.paused && !this.portraitBlocked && (this.input.active || this.debug) && this.ui.open !== 'intro';
+    if (this.touch) this.touch.setVisible(active && !this.ui.open);
+    if (active && !params.has('nodowngrade')) {
+      this.perf.t += Math.min(rawMs / 1000, 0.25); this.perf.frames++;
+      if (this.perf.t > 4) {
+        const fps = this.perf.frames / this.perf.t;
+        if (fps < 26 && this.perf.step < 2) this.downgrade(fps);
+        this.perf.t = 0; this.perf.frames = 0;
+      }
+    }
     if (active) this.time += dt;
     const t = this.time;
     const p = this.player;
@@ -276,6 +357,11 @@ class Game {
       this.story.update(dt);
       this.entities.update(dt, t);
       this.interact.update();
+      if (this.touch) this.touch.hot(!!this.interact.hit);
+    } else {
+      // drop look/stick input gathered while a screen was up, so the view does not snap on resume
+      this.input.consumeMouse();
+      this.input.axes.active = false;
     }
     this.ui.update(dt);
 

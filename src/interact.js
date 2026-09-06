@@ -10,7 +10,7 @@ export class Interact {
   }
   update() {
     const g = this.g;
-    if (g.ui.open || !(g.input.locked || g.debug) || g.player.frozen) { g.ui.prompt(null); this.hit = null; return; }
+    if (g.ui.open || !(g.input.active || g.debug) || g.player.frozen) { g.ui.prompt(null); this.hit = null; return; }
     this.ray.setFromCamera(this.center, g.camera);
     const hits = this.ray.intersectObjects(g.world.interactables, false);
     let h = null;

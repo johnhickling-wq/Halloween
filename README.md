@@ -21,7 +21,7 @@ npx serve .            # then open http://localhost:3000
 python3 -m http.server 8000   # then open http://localhost:8000
 ```
 
-Desktop browser with a mouse and keyboard required (Chrome, Edge, Firefox or Safari). Headphones recommended.
+Works on a desktop browser with a mouse and keyboard, and on a phone or tablet held in landscape. Headphones recommended.
 
 ## Controls
 
@@ -34,7 +34,19 @@ Desktop browser with a mouse and keyboard required (Chrome, Edge, Firefox or Saf
 | `J` / `Tab` | Journal and map |
 | `Esc` | Pause (mouse sensitivity, head-bob) |
 
-The **Quality** selector on the title screen trades shadows, bloom and anti-aliasing for frame rate on weaker machines.
+On a touch screen, hold the device in landscape (a card asks you to turn it if you don't):
+
+| Touch | Action |
+| --- | --- |
+| Left thumb, anywhere | A stick appears where you press — drag to walk |
+| Push the stick to the edge | Run |
+| Drag on the right | Look |
+| Tap on the right, or **EXAMINE** | Examine, read, open doors |
+| **JOURNAL** | Journal and map |
+| **❚❚** | Pause |
+| Tap the paper or the book | Put it down |
+
+The **Quality** selector on the title screen trades shadows, bloom and anti-aliasing for frame rate on weaker machines. Phones start on *Low* and tablets on *Medium*; if the frame rate still drags, the game quietly sheds effects on its own rather than crawling (`?nodowngrade` turns that off).
 
 ![The churchyard](docs/screenshots/churchyard.jpg)
 
@@ -55,6 +67,7 @@ The **Quality** selector on the title screen trades shadows, bloom and anti-alia
 - World: a height-field terrain with a three-way splat shader (grass, mud, cobbles), a custom sky shader (stars, clouds, an oversized moon and a dawn), a shader-driven marsh, wind-swayed reeds, instanced procedural trees, ground mist, falling leaves, chimney smoke, wisps and bats.
 - Static geometry is merged by material into spatial chunks after the village is built, which keeps draw calls manageable.
 - `src/world/assets.js` is the model library: a manifest of CC0 glTF files with target sizes and collider shapes, a loader that flattens each file into plain meshes with shared materials, and helpers to place or instance them. `dev/catalogue.html` renders every model in the manifest for inspection.
+- `src/touch.js` is the on-screen control layer: a floating thumb-stick, a look-drag zone and the buttons. It feeds virtual key presses and analogue axes into the ordinary `Input` object, so the player, interaction and story code never learn whether a mouse or a thumb is driving them.
 - `src/story.js` holds all of the clue text and the act structure; `src/world/village.js` is the village layout.
 
 ### Developer flags

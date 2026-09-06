@@ -51,9 +51,10 @@ export class Player {
       this.pitch = clamp(this.pitch - dy * s, -1.45, 1.45);
     } else input.consumeMouse();
 
-    // movement
+    // movement: keys are all-or-nothing, the thumb-stick is analogue
     let fwd = 0, side = 0;
     if (!this.frozen) {
+      if (input.axes && input.axes.active) { side = input.axes.x; fwd = -input.axes.y; }
       if (input.down('KeyW', 'ArrowUp')) fwd += 1;
       if (input.down('KeyS', 'ArrowDown')) fwd -= 1;
       if (input.down('KeyA', 'ArrowLeft')) side -= 1;
@@ -61,9 +62,9 @@ export class Player {
     }
     const running = (input.down('ShiftLeft', 'ShiftRight')) && fwd > 0;
     this.running = running;
-    const len = Math.hypot(fwd, side) || 1;
-    fwd /= len; side /= len;
-    const maxSpeed = (running ? 5.6 : 3.1) * this.speedMul;
+    let mag = Math.hypot(fwd, side);
+    if (mag > 1) { fwd /= mag; side /= mag; mag = 1; }
+    const maxSpeed = (running ? 5.6 : 3.1) * this.speedMul * mag;
     const sinY = Math.sin(this.yaw), cosY = Math.cos(this.yaw);
     // forward vector for yaw (camera looks down -z when yaw = 0)
     const fx = -sinY, fz = -cosY;

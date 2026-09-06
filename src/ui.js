@@ -52,7 +52,11 @@ export class UI {
     f.classList.remove('slow', 'fast'); if (speed) f.classList.add(speed);
     f.classList.toggle('clear', !toBlack);
   }
-  screen(name, on) { const el = this.el[name]; if (el) el.classList.toggle('on', on); if (on) this.open = name; else if (this.open === name) this.open = null; }
+  screen(name, on) {
+    const el = this.el[name]; if (el) el.classList.toggle('on', on);
+    if (on) { this.open = name; this.openedAt = performance.now(); } else if (this.open === name) this.open = null;
+    if (this.onScreenChange) this.onScreenChange(this.open);
+  }
   // ------- notes -------
   showNote(clue, name) {
     const e = this.el;
